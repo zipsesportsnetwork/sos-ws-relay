@@ -1,0 +1,14 @@
+{
+  "name": "sos-ws-relay",
+  "version": "1.0.0",
+  "description": "Websocket Relay. Very lightweight",
+  "main": "ws-relay.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^7.2.1"
+  }
+}
