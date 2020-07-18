@@ -1,11 +1,6 @@
 const WebSocket = require('ws');
 const prompt = require('prompt');
-// const port = process.argv[2] || 49322;
-
-// if (port < 1000 || port > 65535) {
-//     console.warn("Invalid port number provided. Exiting");
-//     process.exit(2);
-// }
+const { success, error, warn, info, log, indent } = require('cli-msg');
 
 prompt.get([
     {
@@ -21,13 +16,20 @@ prompt.get([
         default: "localhost:49122"
     }
 ], function (e, r) {
+    /**
+     * Rocket League WebSocket client
+     * @type {WebSocket}
+     */
+    let wsClient;
+    let rlWsClientReady = false;
+
     const wss = new WebSocket.Server({ port: r.port });
     let connections = {};
-    console.log("Opened WebSocket server on port " + r.port);
+    info.wb("Opened WebSocket server on port " + r.port);
 
     wss.on('connection', function connection(ws) {
         let id = (+ new Date()).toString();
-        console.log("Received connection: " + id);
+        success.wb("Received connection: " + id);
         connections[id] = {
             connection: ws,
             registeredFunctions: []
@@ -44,46 +46,33 @@ prompt.get([
         });
     });
 
-    /**
-     * Rocket League WebSocket client
-     * @type {WebSocket}
-     */
-    const wsClient = new WebSocket("ws://"+r.rocketLeagueHostname);
-    let rlWsClientReady = false;
-
-    wsClient.on('open', function open() {
-        rlWsClientReady = true;
-        console.log("Connected to websocket on "+r.rocketLeagueHostname);
-    });
-    wsClient.on('close', function () {
-        rlWsClientReady = false;
-    });
-    wsClient.onmessage = function(message) {
-        sendRelayMessage(0, message.data);
-    }
-    wsClient.onerror = function (err) {
-        console.log(`Error connecting to Rocket League on "${r.rocketLeagueHostname}": ${JSON.stringify(err)}`);
-    };
+    initRocketLeagueWebsocket(r.rocketLeagueHostname);
+    setInterval(function () {
+       if (wsClient.readyState === WebSocket.CLOSED) {
+           warn.wb("Rocket League WebSocket Server Closed. Attempting to reconnect");
+           initRocketLeagueWebsocket(r.rocketLeagueHostname);
+       }
+    }, 10000);
 
     function sendRelayMessage(senderConnectionId, message) {
         let json = JSON.parse(message);
-        console.log(senderConnectionId + "> Sent " + json.event);
+        log.wb(senderConnectionId + "> Sent " + json.event);
         let channelEvent = (json['event']).split(':');
         if (channelEvent[0] === 'wsRelay') {
             if (channelEvent[1] === 'register') {
                 if (connections[senderConnectionId].registeredFunctions.indexOf(json['data']) < 0) {
                     connections[senderConnectionId].registeredFunctions.push(json['data']);
-                    console.log(senderConnectionId + "> Registered to receive: "+json['data']);
+                    info.wb(senderConnectionId + "> Registered to receive: "+json['data']);
                 } else {
-                    console.log(senderConnectionId + "> Attempted to register an already registered function: "+json['data']);
+                    warn.wb(senderConnectionId + "> Attempted to register an already registered function: "+json['data']);
                 }
             } else if (channelEvent[1] === 'unregister') {
                 let idx = connections[senderConnectionId].registeredFunctions.indexOf(json['data']);
                 if (idx > -1) {
                     connections[senderConnectionId].registeredFunctions.splice(idx, 1);
-                    console.log(senderConnectionId + "> Unregistered: "+json['data']);
+                    info.wb(senderConnectionId + "> Unregistered: "+json['data']);
                 } else {
-                    console.log(senderConnectionId + "> Attempted to unregister a non-registered function: "+json['data']);
+                    warn.wb(senderConnectionId + "> Attempted to unregister a non-registered function: "+json['data']);
                 }
             }
             return;
@@ -105,5 +94,26 @@ prompt.get([
                 }, 0);
             }
         }
+    }
+
+    function initRocketLeagueWebsocket(rocketLeagueHostname) {
+        wsClient = new WebSocket("ws://"+rocketLeagueHostname);
+        rlWsClientReady = false;
+
+        wsClient.onopen = function open() {
+            rlWsClientReady = true;
+            success.wb("Connected to Rocket League on "+rocketLeagueHostname);
+        }
+        wsClient.onclose = function () {
+            rlWsClientReady = false;
+        }
+        wsClient.onmessage = function(message) {
+            sendRelayMessage(0, message.data);
+        }
+        wsClient.onerror = function (err) {
+            rlWsClientReady = false;
+            error.wb(`Error connecting to Rocket League on host "${rocketLeagueHostname}"\nIs the plugin loaded into Rocket League? Run the command "plugin load sos" from the BakkesMod console to make sure`);
+            // error.wb(JSON.stringify(err));
+        };
     }
 });

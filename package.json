@@ -9,6 +9,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "cli-msg": "^1.0.0",
     "prompt": "^1.0.0",
     "ws": "^7.2.1"
   }
