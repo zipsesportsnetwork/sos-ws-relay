@@ -4,11 +4,12 @@
   "description": "Websocket Relay. Very lightweight",
   "main": "ws-relay.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "relay": "node ws-relay.js"
   },
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "atob": "^2.1.2",
     "cli-msg": "^1.0.0",
     "prompt": "^1.0.0",
     "ws": "^7.2.1"

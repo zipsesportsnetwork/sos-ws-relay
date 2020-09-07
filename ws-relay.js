@@ -1,6 +1,7 @@
 const WebSocket = require('ws');
 const prompt = require('prompt');
 const { success, error, warn, info, log, indent } = require('cli-msg');
+const atob = require('atob');
 
 prompt.get([
     {
@@ -21,7 +22,6 @@ prompt.get([
      * @type {WebSocket}
      */
     let wsClient;
-    let rlWsClientReady = false;
 
     const wss = new WebSocket.Server({ port: r.port });
     let connections = {};
@@ -34,6 +34,11 @@ prompt.get([
             connection: ws,
             registeredFunctions: []
         };
+
+        ws.send(JSON.stringify({
+            event: "wsRelay:info",
+            data: "Connected!"
+        }));
 
         ws.on('message', function incoming(message) {
             sendRelayMessage(id, message);
@@ -89,7 +94,7 @@ prompt.get([
                     try {
                         connections[k].connection.send(message);
                     } catch (e) {
-                        //The connection can close between the exist check, and sending so we catch it here and ignore
+                        //The connection can close between the exist check, and sending, so we catch it here and ignore
                     }
                 }, 0);
             }
@@ -98,22 +103,19 @@ prompt.get([
 
     function initRocketLeagueWebsocket(rocketLeagueHostname) {
         wsClient = new WebSocket("ws://"+rocketLeagueHostname);
-        rlWsClientReady = false;
 
         wsClient.onopen = function open() {
-            rlWsClientReady = true;
             success.wb("Connected to Rocket League on "+rocketLeagueHostname);
         }
-        wsClient.onclose = function () {
-            rlWsClientReady = false;
-        }
         wsClient.onmessage = function(message) {
-            sendRelayMessage(0, message.data);
+            let sendMessage = message.data;
+            if (sendMessage.substr(0, 1) !== '{') {
+                sendMessage = atob(message.data);
+            }
+            sendRelayMessage(0, sendMessage);
         }
         wsClient.onerror = function (err) {
-            rlWsClientReady = false;
             error.wb(`Error connecting to Rocket League on host "${rocketLeagueHostname}"\nIs the plugin loaded into Rocket League? Run the command "plugin load sos" from the BakkesMod console to make sure`);
-            // error.wb(JSON.stringify(err));
         };
     }
 });
