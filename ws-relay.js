@@ -5,13 +5,23 @@ const atob = require('atob');
 
 prompt.get([
     {
-        message: "Port number for this websocket server",
+        description: 'Relay delay in ms (used in cloud productions)',
+        pattern: /^\d+$/,
+        message: 'Must be a number',
+        name: 'delay',
+        required: true,
+        default: "0",
+    },
+    {
+        description: "Port number for this websocket server",
+        pattern: /^\d+$/,
+        message: 'Must be a number',
         name: 'port',
         required: true,
         default: "49322",
     },
     {
-        message: "Hostname:Port that Rocket League is running on",
+        description: "Hostname:Port that Rocket League is running on",
         name: 'rocketLeagueHostname',
         required: true,
         default: "localhost:49122"
@@ -22,6 +32,7 @@ prompt.get([
      * @type {WebSocket}
      */
     let wsClient;
+    let relayMsDelay = parseInt(r.delay, 10);
 
     const wss = new WebSocket.Server({ port: r.port });
     let connections = {};
@@ -41,7 +52,9 @@ prompt.get([
         }));
 
         ws.on('message', function incoming(message) {
-            sendRelayMessage(id, message);
+            setTimeout(() => {
+                sendRelayMessage(id, message);
+            }, relayMsDelay);
         });
 
         ws.on('close', function close() {
@@ -106,14 +119,14 @@ prompt.get([
 
         wsClient.onopen = function open() {
             success.wb("Connected to Rocket League on "+rocketLeagueHostname);
-        }
+        };
         wsClient.onmessage = function(message) {
             let sendMessage = message.data;
             if (sendMessage.substr(0, 1) !== '{') {
                 sendMessage = atob(message.data);
             }
             sendRelayMessage(0, sendMessage);
-        }
+        };
         wsClient.onerror = function (err) {
             error.wb(`Error connecting to Rocket League on host "${rocketLeagueHostname}"\nIs the plugin loaded into Rocket League? Run the command "plugin load sos" from the BakkesMod console to make sure`);
         };
