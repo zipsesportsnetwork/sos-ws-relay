@@ -52,9 +52,7 @@ prompt.get([
         }));
 
         ws.on('message', function incoming(message) {
-            setTimeout(() => {
-                sendRelayMessage(id, message);
-            }, relayMsDelay);
+            sendRelayMessage(id, message);
         });
 
         ws.on('close', function close() {
@@ -125,7 +123,9 @@ prompt.get([
             if (sendMessage.substr(0, 1) !== '{') {
                 sendMessage = atob(message.data);
             }
-            sendRelayMessage(0, sendMessage);
+            setTimeout(() => {
+                sendRelayMessage(0, sendMessage);
+            }, relayMsDelay);
         };
         wsClient.onerror = function (err) {
             error.wb(`Error connecting to Rocket League on host "${rocketLeagueHostname}"\nIs the plugin loaded into Rocket League? Run the command "plugin load sos" from the BakkesMod console to make sure`);
