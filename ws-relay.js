@@ -2,6 +2,10 @@ const WebSocket = require('ws');
 const prompt = require('prompt');
 const { success, error, warn, info, log, indent } = require('cli-msg');
 const atob = require('atob');
+const got = require('got');
+
+const STEAM_API_KEY = process.env['STEAM_API_KEY'];
+const avatarCache = {};
 
 prompt.get([
     {
@@ -74,6 +78,9 @@ prompt.get([
         let json = JSON.parse(message);
         log.wb(senderConnectionId + "> Sent " + json.event);
         let channelEvent = (json['event']).split(':');
+        let cachablePlayerIDs = channelEvent[0] === 'game' && channelEvent[1] === 'update_state' ?
+            json.data.players.map((player) => player.primaryID).filter((id) => id !== '0' && typeof avatarCache[id] === 'undefined') :
+            [];
         if (channelEvent[0] === 'wsRelay') {
             if (channelEvent[1] === 'register') {
                 if (connections[senderConnectionId].registeredFunctions.indexOf(json['data']) < 0) {
@@ -92,6 +99,8 @@ prompt.get([
                 }
             }
             return;
+        } else if (cachablePlayerIDs.length > 0) {
+            cachePlayerAvatars(cachablePlayerIDs);
         }
         for (let k in connections) {
             if (senderConnectionId === k) {
@@ -130,5 +139,16 @@ prompt.get([
         wsClient.onerror = function (err) {
             error.wb(`Error connecting to Rocket League on host "${rocketLeagueHostname}"\nIs the plugin loaded into Rocket League? Run the command "plugin load sos" from the BakkesMod console to make sure`);
         };
+    }
+
+    async function cachePlayerAvatars(ids) {
+        const data = await got(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${ids.join(',')}`).json();
+        const { players } = data.response;
+    
+        for (const { steamid, avatarfull } of players) {
+            avatarCache[steamid] = avatarfull;
+        }
+    
+        info.wb(`Cached ${players.length} player avatar(s)`);
     }
 });
