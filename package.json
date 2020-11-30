@@ -7,7 +7,7 @@
     "relay": "node ws-relay.js"
   },
   "author": "",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "dependencies": {
     "atob": "^2.1.2",
     "cli-msg": "^1.0.0",
