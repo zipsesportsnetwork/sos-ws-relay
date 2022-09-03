@@ -6,6 +6,7 @@ const got = require('got');
 
 const STEAM_API_KEY = process.env['STEAM_API_KEY'];
 const avatarCache = {};
+let caching = false;
 
 prompt.get([
     {
@@ -74,13 +75,18 @@ prompt.get([
        }
     }, 10000);
 
+    function isntBot(player) {
+        return player.primaryID !== '0';
+    }
+
+    function notInCache(player) {
+        return typeof avatarCache[player.primaryID] === 'undefined';
+    }
+
     function sendRelayMessage(senderConnectionId, message) {
         let json = JSON.parse(message);
         log.wb(senderConnectionId + "> Sent " + json.event);
         let channelEvent = (json['event']).split(':');
-        let cachablePlayerIDs = channelEvent[0] === 'game' && channelEvent[1] === 'update_state' ?
-            json.data.players.map((player) => player.primaryID).filter((id) => id !== '0' && typeof avatarCache[id] === 'undefined') :
-            [];
         if (channelEvent[0] === 'wsRelay') {
             if (channelEvent[1] === 'register') {
                 if (connections[senderConnectionId].registeredFunctions.indexOf(json['data']) < 0) {
@@ -99,9 +105,18 @@ prompt.get([
                 }
             }
             return;
-        } else if (cachablePlayerIDs.length > 0) {
-            cachePlayerAvatars(cachablePlayerIDs);
+        } else if (channelEvent[0] === 'game' && channelEvent[1] === 'update_state') {
+            cachePlayerAvatars(Object.values(json.data.players).filter(isntBot).filter(notInCache));
+
+            for (const [id, player] of Object.entries(json.data.players)) {
+                if (isntBot(player) && !notInCache(player)) {
+                    json.data.players[id].avatarURL = avatarCache[player.primaryID];
+                }
+            }
+
+            message = JSON.stringify(json);
         }
+
         for (let k in connections) {
             if (senderConnectionId === k) {
                 continue;
@@ -141,14 +156,19 @@ prompt.get([
         };
     }
 
-    async function cachePlayerAvatars(ids) {
-        const data = await got(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${ids.join(',')}`).json();
-        const { players } = data.response;
+    async function cachePlayerAvatars(players) {
+        if (caching || players.length === 0) return;
+
+        caching = true;
+
+        const data = await got(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${players.map(p => p.primaryID).join(',')}`).json();
     
-        for (const { steamid, avatarfull } of players) {
+        for (const { steamid, avatarfull } of data.response.players) {
             avatarCache[steamid] = avatarfull;
         }
     
         info.wb(`Cached ${players.length} player avatar(s)`);
+
+        caching = false;
     }
 });
